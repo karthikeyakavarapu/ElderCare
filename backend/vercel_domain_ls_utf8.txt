@@ -1,0 +1,23 @@
+﻿node.exe : Fetching 
+Domains under nithin-vs-pr
+ojects-083e498e
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (F  
+  etching Domain...ojec   
+ ts-083e498e:String) [    
+], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+> 0 Domains found under ni
+thin-vs-projects-083e498e 
+[273ms]
