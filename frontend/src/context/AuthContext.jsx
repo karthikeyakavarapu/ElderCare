@@ -120,15 +120,18 @@ export function AuthProvider({ children }) {
   };
 
   const authFetch = async (url, options = {}) => {
+    // Always use the latest token from state
+    const currentToken = localStorage.getItem('eldercare_token') || token;
     const headers = {
       'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...(currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {}),
       ...options.headers
     };
     const res = await fetch(`${API_URL}${url}`, { ...options, headers });
     if (res.status === 401) {
-      logout();
-      throw new Error('Session expired. Please login again.');
+      // Re-auto-login silently (no login page exists)
+      await autoLoginDemo();
+      throw new Error('Session refreshed. Please retry.');
     }
     return res;
   };
