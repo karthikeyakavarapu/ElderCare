@@ -311,7 +311,60 @@ async def reset_password(data: ResetPasswordRequest):
 @auth_router.get("/me")
 async def get_profile(request: Request):
     user = get_current_user(request)
-    return {"user_id": user["user_id"], "email": user["email"], "full_name": user["full_name"], "role": user["role"], "permissions": ROLE_PERMISSIONS.get(user["role"], [])}
+    return {
+        "id": user["user_id"],
+        "user_id": user["user_id"],
+        "email": user["email"],
+        "full_name": user["full_name"],
+        "role": user["role"],
+        "permissions": ROLE_PERMISSIONS.get(user["role"], [])
+    }
+
+@auth_router.post("/seed-demo")
+async def seed_demo():
+    """Create or refresh the demo admin account. Safe to call multiple times."""
+    try:
+        db = get_supabase()
+        existing = db.table("users").select("id, email, full_name, role").eq("email", DEMO_EMAIL).execute()
+        if existing.data:
+            user = existing.data[0]
+            token = create_token(user)
+            return {
+                "token": token,
+                "user": {
+                    "id": user["id"],
+                    "email": user["email"],
+                    "full_name": user.get("full_name", "Demo Admin"),
+                    "role": "admin",
+                    "permissions": ROLE_PERMISSIONS.get("admin", [])
+                },
+                "message": "Demo account ready",
+                "created": False
+            }
+
+        password_hash = bcrypt.hashpw(DEMO_PASSWORD.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        user_data = {"email": DEMO_EMAIL, "full_name": "Demo Admin", "password_hash": password_hash, "role": "admin", "phone": None}
+        result = db.table("users").insert(user_data).execute()
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Failed to create demo account")
+        user = result.data[0]
+        token = create_token(user)
+        return {
+            "token": token,
+            "user": {
+                "id": user["id"],
+                "email": user["email"],
+                "full_name": "Demo Admin",
+                "role": "admin",
+                "permissions": ROLE_PERMISSIONS.get("admin", [])
+            },
+            "message": "Demo account created",
+            "created": True
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ==================== MESSAGING ENDPOINTS ====================
 class SendMessageRequest(BaseModel):
@@ -809,26 +862,4 @@ async def root():
 async def health_check():
     return {"status": "healthy", "service": "elder-care-api"}
 
-@auth_router.post("/seed-demo")
-async def seed_demo():
-    """Create or refresh the demo admin account. Safe to call multiple times."""
-    try:
-        db = get_supabase()
-        existing = db.table("users").select("id, email, role").eq("email", DEMO_EMAIL).execute()
-        if existing.data:
-            user = existing.data[0]
-            token = create_token(user)
-            return {"token": token, "user": {"id": user["id"], "email": user["email"], "full_name": "Demo Admin", "role": "admin", "permissions": ROLE_PERMISSIONS.get("admin", [])}, "message": "Demo account ready", "created": False}
 
-        password_hash = bcrypt.hashpw(DEMO_PASSWORD.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-        user_data = {"email": DEMO_EMAIL, "full_name": "Demo Admin", "password_hash": password_hash, "role": "admin", "phone": None}
-        result = db.table("users").insert(user_data).execute()
-        if not result.data:
-            raise HTTPException(status_code=500, detail="Failed to create demo account")
-        user = result.data[0]
-        token = create_token(user)
-        return {"token": token, "user": {"id": user["id"], "email": user["email"], "full_name": "Demo Admin", "role": "admin", "permissions": ROLE_PERMISSIONS.get("admin", [])}, "message": "Demo account created", "created": True}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
