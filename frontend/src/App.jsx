@@ -1,11 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Emergency from './pages/Emergency';
 import './index.css';
@@ -33,23 +28,14 @@ function ProtectedRoute({ children, roles }) {
 }
 
 function AppRoutes() {
-  const { isAuthenticated } = useAuth();
-
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/login" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
-      } />
-      <Route path="/signup" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <Signup />
-      } />
-      <Route path="/forgot-password" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <ForgotPassword />
-      } />
-      <Route path="/reset-password" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <ResetPassword />
-      } />
+      {/* Skip straight to dashboard — login is bypassed via auto-login */}
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/signup" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/forgot-password" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/reset-password" element={<Navigate to="/dashboard" replace />} />
       <Route path="/dashboard" element={
         <ProtectedRoute>
           <Dashboard />
@@ -60,7 +46,7 @@ function AppRoutes() {
           <Emergency />
         </ProtectedRoute>
       } />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }

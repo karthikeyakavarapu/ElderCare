@@ -4,36 +4,62 @@ const AuthContext = createContext(null);
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+// Fallback demo user used when the backend is unreachable
+const DEMO_FALLBACK_USER = {
+  id: 'demo-local',
+  email: 'demo@eldercare.app',
+  full_name: 'Demo Admin',
+  role: 'admin',
+  permissions: ['view_all', 'manage_elders', 'manage_users', 'manage_caregivers'],
+  phone: '+1-555-0100',
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('eldercare_token'));
   const [loading, setLoading] = useState(true);
 
+  // Auto-login as demo admin on every fresh load
   useEffect(() => {
-    if (token) {
-      fetchProfile();
-    } else {
-      setLoading(false);
-    }
+    autoLoginDemo();
   }, []);
 
-  const fetchProfile = async () => {
-    try {
-      const res = await fetch(`${API_URL}/api/auth/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data);
-      } else {
-        logout();
-      }
-    } catch (err) {
-      console.error('Profile fetch failed:', err);
-      logout();
-    } finally {
-      setLoading(false);
+  const autoLoginDemo = async () => {
+    // If we already have a stored token, verify it first
+    const storedToken = localStorage.getItem('eldercare_token');
+    if (storedToken) {
+      try {
+        const res = await fetch(`${API_URL}/api/auth/me`, {
+          headers: { 'Authorization': `Bearer ${storedToken}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data);
+          setToken(storedToken);
+          setLoading(false);
+          return;
+        }
+      } catch (_) {}
     }
+
+    // Try to seed and obtain a real demo token
+    try {
+      const seedRes = await fetch(`${API_URL}/api/auth/seed-demo`, { method: 'POST' });
+      if (seedRes.ok) {
+        const seedData = await seedRes.json();
+        localStorage.setItem('eldercare_token', seedData.token);
+        setToken(seedData.token);
+        setUser(seedData.user);
+        setLoading(false);
+        return;
+      }
+    } catch (_) {}
+
+    // Backend not reachable — use local fallback so UI still works
+    console.warn('ElderCare: backend unreachable, using local demo mode');
+    setUser(DEMO_FALLBACK_USER);
+    setToken('demo-local-token');
+    setLoading(false);
   };
 
   const login = async (email, password) => {
