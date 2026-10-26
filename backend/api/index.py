@@ -37,9 +37,15 @@ TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "").strip()
 
 # ==================== DATABASE ====================
 def get_supabase() -> Client:
+    """Create a fresh Supabase client per invocation (serverless-safe).
+    Avoids [Errno 16] Device or resource busy caused by reused httpx/gotrue
+    background threads in Vercel's serverless environment."""
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+    from supabase import create_client
+    from supabase.lib.client_options import ClientOptions
+    options = ClientOptions(auto_refresh_token=False, persist_session=False)
+    return create_client(SUPABASE_URL, SUPABASE_KEY, options=options)
 
 # ==================== PYDANTIC MODELS ====================
 class SignupRequest(BaseModel):
