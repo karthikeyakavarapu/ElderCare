@@ -44,11 +44,22 @@ export function AuthProvider({ children }) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Login failed');
-    
     localStorage.setItem('eldercare_token', data.token);
     setToken(data.token);
     setUser(data.user);
     return data;
+  };
+
+  const loginDemo = async () => {
+    // Seed the demo account (idempotent — safe to call every time)
+    const seedRes = await fetch(`${API_URL}/api/auth/seed-demo`, { method: 'POST' });
+    const seedData = await seedRes.json();
+    if (!seedRes.ok) throw new Error(seedData.detail || 'Demo account unavailable');
+    // Seed endpoint returns a ready token — use it directly
+    localStorage.setItem('eldercare_token', seedData.token);
+    setToken(seedData.token);
+    setUser(seedData.user);
+    return seedData;
   };
 
   const signup = async (email, fullName, password, role, phone) => {
@@ -98,7 +109,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, token, loading, login, signup, logout,
+      user, token, loading, login, loginDemo, signup, logout,
       hasPermission, hasRole, authFetch, isAuthenticated: !!user
     }}>
       {children}

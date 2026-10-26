@@ -7,9 +7,10 @@ headers = []
 [functions."*"]
 
 [build]
-publish = "C:\\Users\\vello\\OneDrive\\Desktop\\Elder care\\frontend\\dist"
+publish = "C:\\Users\\karth\\Downloads\\Elder care\\frontend\\dist"
 publishOrigin = "config"
 commandOrigin = "config"
+base = "C:\\Users\\karth\\Downloads\\Elder care\\frontend"
 command = "npm run build"
 
 [build.environment]

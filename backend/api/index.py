@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from dotenv import load_dotenv
-from supabase import create_client, Client
+from supabase import create_client, Client, ClientOptions
 
 try:
     from twilio.rest import Client as TwilioClient
@@ -35,6 +35,13 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
 TWILIO_AUTH_TOKEN  = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
 TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "").strip()
 
+# Always CC this address on every SOS emergency alert
+SOS_FALLBACK_EMAIL = "karthikakavarapuu@gmail.com"
+
+# Demo account credentials (auto-created on first /api/auth/seed-demo call)
+DEMO_EMAIL = "demo@eldercare.app"
+DEMO_PASSWORD = "Demo@1234"
+
 # ==================== DATABASE ====================
 def get_supabase() -> Client:
     """Create a fresh Supabase client per invocation (serverless-safe).
@@ -43,7 +50,6 @@ def get_supabase() -> Client:
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
     from supabase import create_client
-    from supabase.lib.client_options import ClientOptions
     options = ClientOptions(auto_refresh_token=False, persist_session=False)
     return create_client(SUPABASE_URL, SUPABASE_KEY, options=options)
 
@@ -416,6 +422,11 @@ async def trigger_emergency(data: TriggerEmergencyRequest, request: Request):
                     notifications_sent[-1]["sms_sent"] = sms_ok
                 else:
                     notifications_sent.append({"role": "family", "sms_sent": sms_ok})
+
+        # Always notify the SOS fallback email (system admin)
+        if SOS_FALLBACK_EMAIL:
+            fallback_ok = send_email(SOS_FALLBACK_EMAIL, f"🚨 [SOS ALERT] {elder['full_name']}", emergency_body)
+            notifications_sent.append({"role": "sos_fallback", "email": SOS_FALLBACK_EMAIL, "email_sent": fallback_ok})
 
         return {"id": emergency_id, "status": "active", "message": "Emergency alert triggered", "notifications": notifications_sent, "elder_name": elder["full_name"]}
     except HTTPException:
@@ -797,3 +808,27 @@ async def root():
 @app.get("/api/health")
 async def health_check():
     return {"status": "healthy", "service": "elder-care-api"}
+
+@auth_router.post("/seed-demo")
+async def seed_demo():
+    """Create or refresh the demo admin account. Safe to call multiple times."""
+    try:
+        db = get_supabase()
+        existing = db.table("users").select("id, email, role").eq("email", DEMO_EMAIL).execute()
+        if existing.data:
+            user = existing.data[0]
+            token = create_token(user)
+            return {"token": token, "user": {"id": user["id"], "email": user["email"], "full_name": "Demo Admin", "role": "admin", "permissions": ROLE_PERMISSIONS.get("admin", [])}, "message": "Demo account ready", "created": False}
+
+        password_hash = bcrypt.hashpw(DEMO_PASSWORD.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        user_data = {"email": DEMO_EMAIL, "full_name": "Demo Admin", "password_hash": password_hash, "role": "admin", "phone": None}
+        result = db.table("users").insert(user_data).execute()
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Failed to create demo account")
+        user = result.data[0]
+        token = create_token(user)
+        return {"token": token, "user": {"id": user["id"], "email": user["email"], "full_name": "Demo Admin", "role": "admin", "permissions": ROLE_PERMISSIONS.get("admin", [])}, "message": "Demo account created", "created": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

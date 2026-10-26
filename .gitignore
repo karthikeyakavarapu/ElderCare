@@ -46,3 +46,6 @@ logs/
 
 # Supabase local config (keep schema files but not secrets)
 .supabase/
+
+# Local Netlify folder
+.netlify
